@@ -1,0 +1,6 @@
+[submodule "lib/sock"]
+	path = lib/sock
+	url = git@github.com:hljeong/sock.git
+[submodule "lib/pack"]
+	path = lib/pack
+	url = git@github.com:hljeong/pack.git
