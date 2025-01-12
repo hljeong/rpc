@@ -1,9 +1,9 @@
 exceptiongroup==1.2.2
 iniconfig==2.0.0
-pack @ file:///home/mphillotry/repo/rn/rpc/lib/pack/py
+-e git+ssh://git@github.com/hljeong/pack.git@main#egg=pack&subdirectory=py
 packaging==24.2
 pluggy==1.5.0
--e git+ssh://git@github.com/hljeong/py_utils.git@00ad4051724d4b1d93756873c382d0405430afc4#egg=py_utils&subdirectory=../../../lib/py_utils
+-e git+ssh://git@github.com/hljeong/py_utils.git@main#egg=py_utils
 pytest==8.3.4
-sock @ file:///home/mphillotry/repo/rn/rpc/lib/sock/py
+-e git+ssh://git@github.com/hljeong/sock.git@main#egg=sock&subdirectory=py
 tomli==2.2.1

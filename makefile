@@ -23,7 +23,7 @@ clean: python-clean
 
 update: git-submodule-update
 
-setup: git-hook-apply venv-setup
+setup: git-hook-install venv-setup
 
 cpp: cpp/server.h cpp/test.cc
 	@ $(CC) cpp/test.cc

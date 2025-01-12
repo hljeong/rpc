@@ -1,1 +1,1 @@
-cd /home/mphillotry/repo/rn/rpc; make venv-install-deps && . ./.venv/bin/activate; cd - >/dev/null
+make venv-install-deps && . ./.venv/bin/activate
