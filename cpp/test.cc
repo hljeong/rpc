@@ -18,12 +18,20 @@ int8_t no_args() { return -5; }
 
 void return_void(bool) {}
 
+std::tuple<uint32_t, std::string, std::optional<bool>, std::vector<int8_t>>
+test_tuple(
+    std::tuple<std::vector<int8_t>, std::optional<bool>, std::string, uint32_t>
+        x) {
+  return {std::get<3>(x), std::get<2>(x), std::get<1>(x), std::get<0>(x)};
+}
+
 int main() {
   rpc::Server s;
   s.bind("add", add);
   s.bind("seq", seq);
   s.bind("no_args", no_args);
   s.bind("return_void", return_void);
+  s.bind("test_tuple", test_tuple);
   s.start();
   std::this_thread::sleep_for(std::chrono::seconds(1));
   s.stop();

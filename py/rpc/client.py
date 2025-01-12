@@ -1,25 +1,5 @@
-import importlib.util
-import pathlib
-
-
-# todo: move this to py_utils
-def import_from_path(path):
-    name = pathlib.Path(path).stem
-
-    spec = importlib.util.spec_from_file_location(name, path)
-
-    assert spec is not None
-    mod = importlib.util.module_from_spec(spec)
-
-    assert spec.loader is not None
-    spec.loader.exec_module(mod)
-
-    return mod
-
-
-pack = import_from_path(pathlib.Path(__file__).parent / "../lib/pack/py/pack.py")
-# todo: rename client.py to sock.py
-sock = import_from_path(pathlib.Path(__file__).parent / "../lib/sock/py/client.py")
+from pack import pack
+import sock
 
 
 class Client:
@@ -107,7 +87,7 @@ class Client:
                 raise RuntimeError("could not unpack result")
 
             # todo: better diagnostic with better return status
-            if res is pack.optional_type.NULLOPT:
+            if res is pack.Nullopt:
                 raise RuntimeError("call did not return a value")
 
             return res

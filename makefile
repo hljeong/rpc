@@ -1,24 +1,33 @@
-# todo: python version, venv?
+include makefile_utils/defaults.mk
+
 CC = g++ -Wall -g -std=c++17
-PY = python3
+PYTHON = python3
 
-.PHONY: all clean test update cpp py
+.PHONY: all clean test update cpp
 
-all: test
-
-clean:
-	rm -rf a.out
-
-test: cpp py
-	@./a.out &
-	@$(PY) py/test.py
-	@wait $!
+test: cpp
+	@ # elaborate scheme to:
+	@ # - run c++ server in background,
+	@ # - run pytest,
+	@ # - wait for c++ server to terminate, and
+	@ # - verify both exited with 0
+	@ \
+	./a.out & . ./$(VENV_ACTIVATE) && python -m pytest -v --ignore=lib; \
+	P=$$?; \
+	wait $$!; \
+	(exit $$?) && (exit $$P) && true || false
 	@echo "all tests passed"
 
-update:
-	@git submodule foreach git pull origin main
+clean: python-clean
+	@ rm -rf a.out
+
+update: git-submodule-update
+
+setup: git-hook-apply venv-setup
 
 cpp: cpp/server.h cpp/test.cc
-	@$(CC) cpp/test.cc
+	@ $(CC) cpp/test.cc
 
-py: py/client.py py/test.py
+include makefile_utils/git.mk
+include makefile_utils/python.mk
+include makefile_utils/venv.mk
