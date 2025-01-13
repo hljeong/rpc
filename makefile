@@ -16,7 +16,7 @@ test: cpp
 	P=$$?; \
 	wait $$!; \
 	(exit $$?) && (exit $$P) && true || false
-	@echo "all tests passed"
+	@ echo "all tests passed"
 
 clean: python-clean
 	@ rm -rf a.out
