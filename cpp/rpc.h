@@ -158,7 +158,6 @@ private:
           return;
         }
 
-        // todo: update protocol to use more descriptive status
         send(pack::Pack(pack::pack(OK), m_funcs[handle].get_signature()));
         break;
       }
