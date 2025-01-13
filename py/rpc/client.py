@@ -1,24 +1,37 @@
 from pack import pack
+from py_utils.context import Resource
 import sock
 
-# todo: make context
 
-
-class Client:
+class Client(Resource):
     def __init__(self, port=3727):
-        self.client = sock.Client(port=port)
+        super().__init__()
+        self.client = None
+        self.port = port
 
-        if not self.client.open():
-            raise RuntimeError("could not open socket client")
+    def acquire(self):
+        # todo: [0] these are supposed to be typecheck-only asserts, make them so
+        assert self.client is None
+        self.client = sock.Client(port=self.port)
+        self.client.open()
+        return self
 
-    def close(self):
+    def release(self):
+        # todo: see [0]
+        assert self.client is not None
         self.client.close()
+        self.client = None
 
     def stop_server(self):
+        # todo: see [0]
+        assert self.client is not None
         self.client.stop_server()
 
     def __getattr__(self, handle):
         def call(*args):
+            # todo: see [0]
+            assert self.client is not None
+
             # request type = 1: signature request
             self.client.send(
                 (pack.pack_one(1, T=pack.uint8_type) + pack.pack_one(handle)).data
