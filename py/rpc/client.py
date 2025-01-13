@@ -1,6 +1,8 @@
 from pack import pack
 import sock
 
+# todo: make context
+
 
 class Client:
     def __init__(self, port=3727):
@@ -11,6 +13,9 @@ class Client:
 
     def close(self):
         self.client.close()
+
+    def stop_server(self):
+        self.client.stop_server()
 
     def __getattr__(self, handle):
         def call(*args):

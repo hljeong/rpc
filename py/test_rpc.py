@@ -11,4 +11,5 @@ def test_rpc():
     assert c.no_args() == -5
     assert c.return_void(False) == pack.Unit
 
+    c.stop_server()
     c.close()

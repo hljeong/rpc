@@ -110,9 +110,9 @@ private:
 
 class Server : public sock::Server {
 public:
-  Server(uint16_t port = 3727)
-      : sock::Server([this](auto data, auto len) { callback(data, len); },
-                     port) {}
+  Server(uint16_t port = 3727, bool close_on_empty = true)
+      : sock::Server([this](auto data, auto len) { callback(data, len); }, port,
+                     close_on_empty) {}
 
   virtual ~Server() = default;
 

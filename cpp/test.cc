@@ -26,13 +26,17 @@ test_tuple(
 }
 
 int main() {
+  using namespace std::chrono;
+  using namespace std::this_thread;
+
   rpc::Server s;
+
   s.bind("add", add);
   s.bind("seq", seq);
   s.bind("no_args", no_args);
   s.bind("return_void", return_void);
   s.bind("test_tuple", test_tuple);
-  s.start();
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  s.stop();
+
+  s.start(5s);
+  s.wait_for_stop();
 }
