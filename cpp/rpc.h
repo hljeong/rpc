@@ -108,22 +108,13 @@ private:
   pack::Pack m_signature;
 };
 
-// todo: rpc::Server to derive from sock::Server?
-class Server {
+class Server : public sock::Server {
 public:
   Server(uint16_t port = 3727)
-      : m_server([this](auto data, auto len) { callback(data, len); }, port) {
-    m_server.open();
-  }
+      : sock::Server([this](auto data, auto len) { callback(data, len); },
+                     port) {}
 
-  virtual ~Server() {
-    stop();
-    m_server.close();
-  }
-
-  bool start() { return m_server.start(); }
-
-  bool stop() { return m_server.stop(); }
+  virtual ~Server() = default;
 
   template <typename F> void bind(std::string handle, F f) {
     m_funcs[handle] = UniversalFunc(f);
@@ -146,7 +137,7 @@ private:
       if (!handle_opt) {
         // failed to unpack function handle
         // todo: update protocol to use more descriptive status
-        m_server.send(pack::pack(false));
+        send(pack::pack(false));
         return;
       }
 
@@ -154,39 +145,36 @@ private:
       if (!m_funcs.count(handle)) {
         // unknown function handle
         // todo: update protocol to use more descriptive status
-        m_server.send(pack::pack(false));
+        send(pack::pack(false));
         return;
       }
 
-      m_server.send(
-          pack::Pack(pack::pack(true), m_funcs[handle](up.consume())));
+      send(pack::Pack(pack::pack(true), m_funcs[handle](up.consume())));
     } else if (request == 1) {
       // signature request
       const auto handle_opt = up.unpack<std::string>();
       if (!handle_opt) {
         // failed to unpack function handle
         // todo: update protocol to use more descriptive status
-        m_server.send(pack::pack(false));
+        send(pack::pack(false));
       }
 
       const auto handle = *handle_opt;
       if (!m_funcs.count(handle)) {
         // unknown function handle
         // todo: update protocol to use more descriptive status
-        m_server.send(pack::pack(false));
+        send(pack::pack(false));
         return;
       }
 
-      m_server.send(
-          pack::Pack(pack::pack(true), m_funcs[handle].get_signature()));
+      send(pack::Pack(pack::pack(true), m_funcs[handle].get_signature()));
     } else {
       // unknown request type
-      m_server.send(pack::pack(false));
+      send(pack::pack(false));
       return;
     }
   }
 
-  sock::Server m_server;
   std::map<std::string, UniversalFunc> m_funcs;
 };
 
