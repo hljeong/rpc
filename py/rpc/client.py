@@ -4,21 +4,42 @@ import sock
 
 
 class Client(Resource):
+    class Remote:
+        def __init__(self, funcs):
+            for handle, func in funcs.items():
+                setattr(self, handle, func)
+
     def __init__(self, port=3727):
         super().__init__()
         self.client = None
         self.port = port
+        self.funcs = dict()
 
     def acquire(self):
         # todo: [0] these are supposed to be typecheck-only asserts, make them so
         assert self.client is None
         self.client = sock.Client(port=self.port)
         self.client.open()
-        return self
+
+        # request type = 2: handle list request
+        self.client.send(pack.pack_one(2, T=pack.uint8_type).data)
+
+        # handle list request response format: [handle, ...]
+        handles = pack.unpack_one(
+            pack.list_type.of(pack.string_type), self.client.receive()
+        )
+        if handles is None:
+            raise RuntimeError("could not unpack handle list request response")
+        for handle in handles:
+            self._register(handle)
+        remote = Client.Remote(self.funcs)
+
+        return remote, self
 
     def release(self):
         # todo: see [0]
         assert self.client is not None
+        self.funcs = dict()
         self.client.close()
         self.client = None
 
@@ -27,47 +48,50 @@ class Client(Resource):
         assert self.client is not None
         self.client.stop_server()
 
-    def __getattr__(self, handle):
+    def _register(self, handle):
+        # todo: see [0]
+        assert self.client is not None
+
+        # request type = 1: signature request
+        self.client.send(
+            (pack.pack_one(1, T=pack.uint8_type) + pack.pack_one(handle)).data
+        )
+
+        # signature request response format: {handle_exists[, return_type_info, arity, arg_type_info...]}
+        # todo: error handling
+        # todo: easier way to define protocols
+        up = pack.Unpacker(self.client.receive())
+
+        handle_exists = up.unpack(pack.bool_type)
+        if handle_exists is None:
+            raise RuntimeError("could not unpack signature request response")
+
+        if not handle_exists:
+            raise ValueError(f"unknown function handle: {handle}")
+
+        return_type_info = up.unpack(pack.type_info_type)
+        if return_type_info is None:
+            raise RuntimeError("could not unpack signature")
+
+        arity = up.unpack(pack.uint8_type)
+        if arity is None:
+            raise RuntimeError("could not unpack signature")
+
+        arg_type_infos = list()
+        for _ in range(arity):
+            arg_type_info = up.unpack(pack.type_info_type)
+            if arg_type_info is None:
+                raise RuntimeError("could not unpack signature")
+            arg_type_infos.append(arg_type_info)
+
         def call(*args):
             # todo: see [0]
             assert self.client is not None
 
-            # request type = 1: signature request
-            self.client.send(
-                (pack.pack_one(1, T=pack.uint8_type) + pack.pack_one(handle)).data
-            )
-
-            # signature request response format: {handle_exists[, return_type_info, arity, arg_type_info...]}
-            # todo: error handling
-            # todo: easier way to define protocols
-            up = pack.Unpacker(self.client.receive())
-
-            handle_exists = up.unpack(pack.bool_type)
-            if handle_exists is None:
-                raise RuntimeError("could not unpack signature request response")
-
-            if not handle_exists:
-                raise ValueError(f"unknown function handle: {handle}")
-
-            return_type_info = up.unpack(pack.type_info_type)
-            if return_type_info is None:
-                raise RuntimeError("could not unpack signature")
-
-            arity = up.unpack(pack.uint8_type)
-            if arity is None:
-                raise RuntimeError("could not unpack signature")
-
             if len(args) != arity:
                 raise ValueError(
-                    f"wrong number of arguments: {args} ({len(args)}), expected {arity}"
+                    f"wrong number of arguments: {args} (n = {len(args)}), expected {arity}"
                 )
-
-            arg_type_infos = list()
-            for _ in range(arity):
-                arg_type_info = up.unpack(pack.type_info_type)
-                if arg_type_info is None:
-                    raise RuntimeError("could not unpack signature")
-                arg_type_infos.append(arg_type_info)
 
             packed_args = pack.pack(
                 *(
@@ -106,4 +130,4 @@ class Client(Resource):
 
             return res
 
-        return call
+        self.funcs[handle] = call

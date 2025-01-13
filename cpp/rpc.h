@@ -168,6 +168,14 @@ private:
       }
 
       send(pack::Pack(pack::pack(true), m_funcs[handle].get_signature()));
+    } else if (request == 2) {
+      // handle list request
+      std::vector<std::string> handles;
+      for (const auto &[handle, _] : m_funcs) {
+        handles.push_back(handle);
+      }
+
+      send(pack::pack(handles));
     } else {
       // unknown request type
       send(pack::pack(false));
