@@ -106,6 +106,20 @@ private:
   pack::Pack m_signature;
 };
 
+enum RequestType : uint8_t {
+  CALL = 0,
+  SIGNATURE_REQUEST = 1,
+  HANDLE_LIST_REQUEST = 2,
+};
+
+// todo: possibly send diagnostic string on everything that is not ok?
+enum StatusCode : uint8_t {
+  OK = 0,
+  ERROR = 1,
+  INVALID_REQUEST = 2,
+  UNKNOWN_HANDLE = 3,
+};
+
 class Server : public sock::Server {
 public:
   Server(uint16_t port = 3727, bool close_on_empty = true)
@@ -123,53 +137,53 @@ private:
     pack::Unpacker up(pack::Bytes(data, data + len));
 
     try {
-      const auto request = up.unpack<uint8_t>();
-      if (request == 0) {
-        // call
+      const auto request_type = up.unpack<uint8_t>();
+      switch (request_type) {
+      case CALL: {
         const auto handle = up.unpack<std::string>();
         if (!m_funcs.count(handle)) {
-          // unknown function handle
-          // todo: update protocol to use more descriptive status
-          send(pack::pack(false));
+          send(pack::pack(UNKNOWN_HANDLE));
+          return;
+        }
+
+        // todo: wrap function call with try catch
+        send(pack::Pack(pack::pack(OK), m_funcs[handle](up.consume())));
+        break;
+      }
+
+      case SIGNATURE_REQUEST: {
+        const auto handle = up.unpack<std::string>();
+        if (!m_funcs.count(handle)) {
+          send(pack::pack(UNKNOWN_HANDLE));
           return;
         }
 
         // todo: update protocol to use more descriptive status
-        send(pack::Pack(pack::pack(true), m_funcs[handle](up.consume())));
-      } else if (request == 1) {
-        // signature request
-        const auto handle = up.unpack<std::string>();
-        if (!m_funcs.count(handle)) {
-          // unknown function handle
-          // todo: update protocol to use more descriptive status
-          send(pack::pack(false));
-          return;
-        }
+        send(pack::Pack(pack::pack(OK), m_funcs[handle].get_signature()));
+        break;
+      }
 
-        // todo: update protocol to use more descriptive status
-        send(pack::Pack(pack::pack(true), m_funcs[handle].get_signature()));
-      } else if (request == 2) {
-        // handle list request
+      case HANDLE_LIST_REQUEST: {
         std::vector<std::string> handles;
         for (const auto &[handle, _] : m_funcs) {
           handles.push_back(handle);
         }
 
         send(pack::pack(handles));
-      } else {
-        // unknown request type
-        // todo: update protocol to use more descriptive status
-        send(pack::pack(false));
-        return;
+        break;
       }
+
+      default: {
+        send(pack::pack(INVALID_REQUEST));
+        break;
+      }
+      };
     } catch (const std::runtime_error &e) {
-      // todo: more precise errors
-      // todo: update protocol to use more descriptive status
-      send(pack::pack(false));
+      // todo: more granularity on this try catch
+      send(pack::pack(ERROR));
     }
   }
 
   std::map<std::string, UniversalFunc> m_funcs;
 };
-
 }; // namespace rpc
