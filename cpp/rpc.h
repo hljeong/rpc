@@ -55,9 +55,7 @@ auto packable_apply(F f, T t)
 
 template <typename F, std::size_t... Is>
 auto invoke(F f, pack::Pack pack, std::index_sequence<Is...>) {
-  const auto args_opt = pack::unpack<nth_arg_type<F, Is>...>(pack);
-  return args_opt ? std::make_optional(packable_apply(f, *args_opt))
-                  : std::nullopt;
+  return packable_apply(f, pack::unpack<nth_arg_type<F, Is>...>(pack));
 }
 
 template <typename F> decltype(auto) invoke(F f, pack::Pack pack) {
@@ -124,62 +122,50 @@ private:
   void callback(const uint8_t *data, uint32_t len) {
     pack::Unpacker up(pack::Bytes(data, data + len));
 
-    const auto request_opt = up.unpack<uint8_t>();
-    if (!request_opt) {
-      // failed to unpack request id
-      return;
-    }
+    try {
+      const auto request = up.unpack<uint8_t>();
+      if (request == 0) {
+        // call
+        const auto handle = up.unpack<std::string>();
+        if (!m_funcs.count(handle)) {
+          // unknown function handle
+          // todo: update protocol to use more descriptive status
+          send(pack::pack(false));
+          return;
+        }
 
-    const auto request = *request_opt;
-    if (request == 0) {
-      // call
-      const auto handle_opt = up.unpack<std::string>();
-      if (!handle_opt) {
-        // failed to unpack function handle
+        // todo: update protocol to use more descriptive status
+        send(pack::Pack(pack::pack(true), m_funcs[handle](up.consume())));
+      } else if (request == 1) {
+        // signature request
+        const auto handle = up.unpack<std::string>();
+        if (!m_funcs.count(handle)) {
+          // unknown function handle
+          // todo: update protocol to use more descriptive status
+          send(pack::pack(false));
+          return;
+        }
+
+        // todo: update protocol to use more descriptive status
+        send(pack::Pack(pack::pack(true), m_funcs[handle].get_signature()));
+      } else if (request == 2) {
+        // handle list request
+        std::vector<std::string> handles;
+        for (const auto &[handle, _] : m_funcs) {
+          handles.push_back(handle);
+        }
+
+        send(pack::pack(handles));
+      } else {
+        // unknown request type
         // todo: update protocol to use more descriptive status
         send(pack::pack(false));
         return;
       }
-
-      const auto handle = *handle_opt;
-      if (!m_funcs.count(handle)) {
-        // unknown function handle
-        // todo: update protocol to use more descriptive status
-        send(pack::pack(false));
-        return;
-      }
-
-      send(pack::Pack(pack::pack(true), m_funcs[handle](up.consume())));
-    } else if (request == 1) {
-      // signature request
-      const auto handle_opt = up.unpack<std::string>();
-      if (!handle_opt) {
-        // failed to unpack function handle
-        // todo: update protocol to use more descriptive status
-        send(pack::pack(false));
-      }
-
-      const auto handle = *handle_opt;
-      if (!m_funcs.count(handle)) {
-        // unknown function handle
-        // todo: update protocol to use more descriptive status
-        send(pack::pack(false));
-        return;
-      }
-
-      send(pack::Pack(pack::pack(true), m_funcs[handle].get_signature()));
-    } else if (request == 2) {
-      // handle list request
-      std::vector<std::string> handles;
-      for (const auto &[handle, _] : m_funcs) {
-        handles.push_back(handle);
-      }
-
-      send(pack::pack(handles));
-    } else {
-      // unknown request type
+    } catch (const std::runtime_error &e) {
+      // todo: more precise errors
+      // todo: update protocol to use more descriptive status
       send(pack::pack(false));
-      return;
     }
   }
 

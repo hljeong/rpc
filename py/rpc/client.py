@@ -120,7 +120,7 @@ class Client(Resource):
             if not handle_exists:
                 raise ValueError(f"unknown function handle: {handle}")
 
-            res = up.unpack(pack.optional_type.of(return_type_info.T))
+            res = up.unpack(return_type_info.T)
             if res is None:
                 raise RuntimeError("could not unpack result")
 
