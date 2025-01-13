@@ -4,7 +4,7 @@
 #include <tuple>
 
 #include "../lib/pack/cpp/pack.h"
-#include "../lib/sock/cpp/server.h"
+#include "../lib/sock/cpp/sock.h"
 
 namespace rpc {
 

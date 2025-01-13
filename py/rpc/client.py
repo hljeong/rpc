@@ -7,11 +7,7 @@ class Client:
         self.client = sock.Client(port=port)
 
         if not self.client.open():
-            raise RuntimeError("could not open socket")
-
-        if not self.client.connect():
-            self.close()
-            raise RuntimeError("could not connect")
+            raise RuntimeError("could not open socket client")
 
     def close(self):
         self.client.close()

@@ -21,7 +21,7 @@ test: cpp
 clean: python-clean
 	@ rm -rf a.out
 
-update: git-submodule-update
+update: git-submodule-update venv-force-install-deps
 
 setup: git-hook-install venv-setup
 
