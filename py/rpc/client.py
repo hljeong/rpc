@@ -49,12 +49,12 @@ class Client(Resource):
         self.client.open()
 
         self.client.send(
-            pack.pack_one(RequestType.HANDLE_LIST_REQUEST.value, T=pack.uint8_type).data
+            pack.pack_one(RequestType.HANDLE_LIST_REQUEST.value, T=pack.UInt8Type).data
         )
 
         # handle list request response format: [handle, ...]
         handles = pack.unpack_one(
-            pack.list_type.of(pack.string_type), self.client.receive()
+            pack.ListType.of(pack.StringType), self.client.receive()
         )
         if handles is None:
             raise RuntimeError("could not unpack handle list request response")
@@ -83,7 +83,7 @@ class Client(Resource):
 
         self.client.send(
             (
-                pack.pack_one(RequestType.SIGNATURE_REQUEST.value, T=pack.uint8_type)
+                pack.pack_one(RequestType.SIGNATURE_REQUEST.value, T=pack.UInt8Type)
                 + pack.pack_one(handle)
             ).data
         )
@@ -93,7 +93,7 @@ class Client(Resource):
         # todo: easier way to define protocols
         up = pack.Unpacker(self.client.receive())
 
-        status = up.unpack(pack.uint8_type)
+        status = up.unpack(pack.UInt8Type)
         status = StatusCode(status)
         if status != StatusCode.OK:
             if status == StatusCode.UNKNOWN_HANDLE:
@@ -101,11 +101,11 @@ class Client(Resource):
             else:
                 raise RPCError(status)
 
-        return_type_info = up.unpack(pack.type_info_type)
-        arity = up.unpack(pack.uint8_type)
+        return_type_info = up.unpack(pack.TypeInfoType)
+        arity = up.unpack(pack.UInt8Type)
         arg_type_infos = list()
         for _ in range(arity):
-            arg_type_info = up.unpack(pack.type_info_type)
+            arg_type_info = up.unpack(pack.TypeInfoType)
             arg_type_infos.append(arg_type_info)
 
         def call(*args):
@@ -126,7 +126,7 @@ class Client(Resource):
 
             self.client.send(
                 (
-                    pack.pack_one(RequestType.CALL.value, T=pack.uint8_type)
+                    pack.pack_one(RequestType.CALL.value, T=pack.UInt8Type)
                     + pack.pack(handle)
                     + packed_args
                 ).data
@@ -135,7 +135,7 @@ class Client(Resource):
             # call response format: {handle_exists[, optional return_value]}
             up = pack.Unpacker(self.client.receive())
 
-            status = up.unpack(pack.uint8_type)
+            status = up.unpack(pack.UInt8Type)
             status = StatusCode(status)
             if status != StatusCode.OK:
                 if status == StatusCode.UNKNOWN_HANDLE:
