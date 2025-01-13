@@ -25,7 +25,7 @@ update: git-submodule-update venv-force-install-deps
 
 setup: git-hook-install venv-setup
 
-cpp: cpp/server.h cpp/test.cc
+cpp: cpp/rpc.h cpp/test.cc
 	@ $(CC) cpp/test.cc
 
 include makefile_utils/git.mk

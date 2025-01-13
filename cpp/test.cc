@@ -1,6 +1,6 @@
 #include <cassert>
 
-#include "server.h"
+#include "rpc.h"
 
 using namespace rpc;
 

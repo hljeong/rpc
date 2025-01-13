@@ -24,6 +24,8 @@ template <typename R, typename... As> struct func_traits<R (*)(As...)> {
 
   static const std::size_t arity = sizeof...(As);
 
+  using arg_types = std::tuple<As...>;
+
   template <std::size_t I>
   using arg_type =
       typename std::tuple_element_t<I,
@@ -40,38 +42,22 @@ template <typename F> constexpr std::size_t arity = func_traits<F>::arity;
 template <typename F>
 constexpr bool returns_void = std::is_same_v<return_type<F>, void>;
 
-template <typename F, typename... As, std::size_t... Is>
-decltype(auto) invoke(F f, const std::tuple<As...> &args,
-                      std::index_sequence<Is...>) {
-  return f(std::get<Is>(args)...);
-}
+template <typename F, typename T>
+auto packable_apply(F f, T t)
+    -> std::conditional_t<returns_void<F>, pack::Unit, return_type<F>> {
+  if constexpr (returns_void<F>) {
+    std::apply(f, t);
+    return pack::Unit();
+  } else {
+    return std::apply(f, t);
+  };
+};
 
-template <typename F, typename... As>
-decltype(auto) invoke(F f, const std::tuple<As...> &args) {
-  return invoke(f, args, std::index_sequence_for<As...>{});
-}
-
-template <typename F, std::size_t... Is,
-          std::enable_if_t<!returns_void<F>, bool> = true>
-auto invoke(F f, pack::Pack pack, std::index_sequence<Is...>)
-    -> std::optional<return_type<F>> {
+template <typename F, std::size_t... Is>
+auto invoke(F f, pack::Pack pack, std::index_sequence<Is...>) {
   const auto args_opt = pack::unpack<nth_arg_type<F, Is>...>(pack);
-  if (!args_opt) {
-    return std::nullopt;
-  }
-  return invoke(f, *args_opt);
-}
-
-template <typename F, std::size_t... Is,
-          std::enable_if_t<returns_void<F>, bool> = true>
-auto invoke(F f, pack::Pack pack, std::index_sequence<Is...>)
-    -> std::optional<pack::Unit> {
-  const auto args_opt = pack::unpack<nth_arg_type<F, Is>...>(pack);
-  if (!args_opt) {
-    return std::nullopt;
-  }
-  invoke(f, *args_opt);
-  return pack::Unit();
+  return args_opt ? std::make_optional(packable_apply(f, *args_opt))
+                  : std::nullopt;
 }
 
 template <typename F> decltype(auto) invoke(F f, pack::Pack pack) {
