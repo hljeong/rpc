@@ -91,7 +91,7 @@ class Client(Resource):
         # todo: easier way to define protocols
         up = pack.Unpacker(self.client.receive())
 
-        status = up.unpack(pack.UInt8)
+        status = up.unpack[pack.UInt8]()
         status = StatusCode(status)
         if status != StatusCode.OK:
             if status == StatusCode.UNKNOWN_HANDLE:
@@ -99,11 +99,11 @@ class Client(Resource):
             else:
                 raise RPCError(status)
 
-        return_type_info = up.unpack(pack.TypeInfoType)
-        arity = up.unpack(pack.UInt8)
+        return_type_info = up.unpack[pack.TypeInfoType]()
+        arity = up.unpack[pack.UInt8]()
         arg_type_infos = list()
         for _ in range(arity):
-            arg_type_info = up.unpack(pack.TypeInfoType)
+            arg_type_info = up.unpack[pack.TypeInfoType]()
             arg_type_infos.append(arg_type_info)
 
         def call(*args):
@@ -115,9 +115,10 @@ class Client(Resource):
                     f"wrong number of arguments for '{handle}': got {len(args)} ({', '.join(map(str, args))}), expected {arity}"
                 )
 
+            # todo: restructure this call once pack.pack supports parametrization
             packed_args = pack.pack(
                 *(
-                    pack.typed(arg, T=arg_type_info.T)
+                    arg_type_info.T(arg)
                     for arg, arg_type_info in zip(args, arg_type_infos)
                 )
             )
@@ -133,7 +134,7 @@ class Client(Resource):
             # call response format: {handle_exists[, optional return_value]}
             up = pack.Unpacker(self.client.receive())
 
-            status = up.unpack(pack.UInt8)
+            status = up.unpack[pack.UInt8]()
             status = StatusCode(status)
             if status != StatusCode.OK:
                 if status == StatusCode.UNKNOWN_HANDLE:
@@ -141,7 +142,7 @@ class Client(Resource):
                 else:
                     raise RPCError(status)
 
-            res = up.unpack(return_type_info.T)
+            res = up.unpack[return_type_info.T]()
 
             # todo: better diagnostic with better return status
             if res is pack.Nullopt:
