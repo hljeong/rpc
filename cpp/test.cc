@@ -25,6 +25,8 @@ test_tuple(
   return {std::get<3>(x), std::get<2>(x), std::get<1>(x), std::get<0>(x)};
 }
 
+bool error() { throw std::runtime_error("calling error();"); }
+
 int main() {
   using namespace std::chrono;
   using namespace std::this_thread;
@@ -36,6 +38,7 @@ int main() {
   s.bind("no_args", no_args);
   s.bind("return_void", return_void);
   s.bind("test_tuple", test_tuple);
+  s.bind("error", error);
 
   s.start(5s);
   s.wait_for_stop();

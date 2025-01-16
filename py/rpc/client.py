@@ -19,6 +19,7 @@ class StatusCode(Enum):
     ERROR = 1
     INVALID_REQUEST = 2
     UNKNOWN_HANDLE = 3
+    EXECUTION_ERROR = 4
 
 
 class RPCError(Exception):
@@ -86,7 +87,7 @@ class Client(Resource):
             ).data
         )
 
-        # signature request response format: {handle_exists[, return_type_info, arity, arg_type_info...]}
+        # signature request response format: {status[, return_type_info, arity, arg_type_info...]}
         # todo: error handling
         # todo: easier way to define protocols
         up = pack.Unpacker(self.client.receive())
@@ -131,7 +132,7 @@ class Client(Resource):
                 ).data
             )
 
-            # call response format: {handle_exists[, optional return_value]}
+            # call response format: {status[, return_value]}
             up = pack.Unpacker(self.client.receive())
 
             status = up.unpack[pack.UInt8]()
@@ -139,15 +140,13 @@ class Client(Resource):
             if status != StatusCode.OK:
                 if status == StatusCode.UNKNOWN_HANDLE:
                     raise RPCError(f"unknown function handle: {handle}")
+                elif status == StatusCode.EXECUTION_ERROR:
+                    raise RPCError(
+                        f"execution error during call to {handle}({', '.join(map(repr, args))}): {up.unpack[pack.String]()}"
+                    )
                 else:
                     raise RPCError(status)
 
-            res = up.unpack[return_type_info.T]()
-
-            # todo: better diagnostic with better return status
-            if res is pack.Nullopt:
-                raise RuntimeError("call did not return a value")
-
-            return res
+            return up.unpack[return_type_info.T]()
 
         self.funcs[handle] = call

@@ -112,12 +112,12 @@ enum RequestType : uint8_t {
   HANDLE_LIST_REQUEST = 2,
 };
 
-// todo: possibly send diagnostic string on everything that is not ok?
 enum StatusCode : uint8_t {
   OK = 0,
   ERROR = 1,
   INVALID_REQUEST = 2,
   UNKNOWN_HANDLE = 3,
+  EXECUTION_ERROR = 4,
 };
 
 class Server : public sock::Server {
@@ -146,8 +146,13 @@ private:
           return;
         }
 
-        // todo: wrap function call with try catch
-        send(pack::Pack(pack::pack(OK), m_funcs[handle](up.consume())));
+        try {
+          const auto return_value = m_funcs[handle](up.consume());
+          send(pack::Pack(pack::pack(OK), return_value));
+        } catch (const std::runtime_error &e) {
+          send(pack::Pack(pack::pack(EXECUTION_ERROR),
+                          pack::pack(std::string_view(e.what()))));
+        }
         break;
       }
 

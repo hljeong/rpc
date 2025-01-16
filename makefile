@@ -12,7 +12,7 @@ test: cpp
 	@ # - wait for c++ server to terminate, and
 	@ # - verify both exited with 0
 	@ \
-	./a.out & . ./$(VENV_ACTIVATE) && python -m pytest -v --ignore=lib; \
+	./a.out & . ./$(VENV_ACTIVATE) && python -m pytest -v --ignore=lib -s; \
 	P=$$?; \
 	wait $$!; \
 	(exit $$?) && (exit $$P) && true || false
