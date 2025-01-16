@@ -12,6 +12,7 @@ class RequestType(Enum):
     CALL = 0
     SIGNATURE_REQUEST = 1
     HANDLE_LIST_REQUEST = 2
+    VAR_LIST_REQUEST = 3
 
 
 class StatusCode(Enum):
@@ -31,17 +32,33 @@ class RPCError(Exception):
             super().__init__(info)
 
 
-class Client(Resource):
-    class Remote:
-        def __init__(self, funcs):
-            for handle, func in funcs.items():
-                setattr(self, handle, func)
+class Ref:
+    def __init__(self, name, getter, setter):
+        self.name = name
+        self.getter = getter
+        self.setter = setter
 
+    def __repr__(self):
+        return f"Ref[{self.name}]"
+
+    def __get__(self, *_):
+        if self.getter is None:
+            raise RPCError(f"invalid access: {self.name} is not readable")
+        return self.getter()
+
+    def __set__(self, _, value):
+        if self.setter is None:
+            raise RPCError(f"invalid access: {self.name} is not writable")
+        return self.setter(value)
+
+
+class Client(Resource):
     def __init__(self, port=3727):
         super().__init__()
         self.client = None
         self.port = port
         self.funcs = dict()
+        self.vars = dict()
 
     def acquire(self):
         # todo: [0] these are supposed to be typecheck-only asserts, make them so
@@ -60,13 +77,44 @@ class Client(Resource):
 
         for handle in handles:
             self._register(handle)
-        remote = Client.Remote(self.funcs)
+
+        self.client.send(
+            pack.pack_one[pack.UInt8](RequestType.VAR_LIST_REQUEST.value).data
+        )
+
+        # handle list request response format: [(name, getter_handle, setter_handle), ...]
+        vars = pack.unpack_one[
+            pack.List[
+                pack.Tuple[
+                    pack.String, pack.Optional[pack.String], pack.Optional[pack.String]
+                ]
+            ]
+        ](self.client.receive())
+        if handles is None:
+            raise RuntimeError("could not unpack var list request response")
+
+        for name, getter_handle, setter_handle in vars:
+            self._register_var(name, getter_handle, setter_handle)
+
+        class Remote:
+            def __init__(self, funcs):
+                for handle, func in funcs.items():
+                    setattr(self, handle, func)
+
+            def __repr__(self):
+                return "<RPC Remote>"
+
+        for name, var in self.vars.items():
+            setattr(Remote, name, var)
+
+        remote = Remote(self.funcs)
 
         return remote, self
 
     def release(self):
         # todo: see [0]
         assert self.client is not None
+        self.vars = dict()
         self.funcs = dict()
         self.client.close()
         self.client = None
@@ -76,6 +124,7 @@ class Client(Resource):
         assert self.client is not None
         self.client.stop_server()
 
+    # todo: clean up logic for registry... so ugly
     def _register(self, handle):
         # todo: see [0]
         assert self.client is not None
@@ -150,3 +199,11 @@ class Client(Resource):
             return up.unpack[return_type_info.T]()
 
         self.funcs[handle] = call
+
+    def _register_var(self, name, getter_handle, setter_handle):
+        # todo: see [0]
+        assert self.client is not None
+
+        self.vars[name] = Ref(
+            name, self.funcs.get(getter_handle), self.funcs.get(setter_handle)
+        )

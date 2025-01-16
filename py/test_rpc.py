@@ -2,6 +2,7 @@ from pytest import raises
 
 from pack import pack
 from rpc import Client, RPCError
+from rpc.client import Ref
 
 
 def test_rpc():
@@ -13,5 +14,13 @@ def test_rpc():
 
         with raises(RPCError):
             rpc.error()
+
+        assert rpc.x == 5
+        rpc.x = 6
+        assert rpc.x == 6
+
+        assert rpc.y == "const"
+        with raises(RPCError):
+            rpc.y = "mutable"
 
         c.stop_server()

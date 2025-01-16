@@ -27,6 +27,10 @@ test_tuple(
 
 bool error() { throw std::runtime_error("calling error();"); }
 
+int x = 5;
+
+const std::string y = "const";
+
 int main() {
   using namespace std::chrono;
   using namespace std::this_thread;
@@ -39,6 +43,12 @@ int main() {
   s.bind("return_void", return_void);
   s.bind("test_tuple", test_tuple);
   s.bind("error", error);
+  s.bind_var("x", x);
+  try {
+    s.bind_var("y", y);
+  } catch (const std::exception &e) {
+    printf("%s\n", e.what());
+  }
 
   s.start(5s);
   s.wait_for_stop();

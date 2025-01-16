@@ -1,7 +1,9 @@
 #pragma once
 
 #include <map>
+#include <optional>
 #include <tuple>
+#include <type_traits>
 
 #include "../lib/pack/cpp/pack.h"
 #include "../lib/sock/cpp/sock.h"
@@ -110,6 +112,7 @@ enum RequestType : uint8_t {
   CALL = 0,
   SIGNATURE_REQUEST = 1,
   HANDLE_LIST_REQUEST = 2,
+  VAR_LIST_REQUEST = 3,
 };
 
 enum StatusCode : uint8_t {
@@ -120,6 +123,28 @@ enum StatusCode : uint8_t {
   EXECUTION_ERROR = 4,
 };
 
+enum class Access : uint8_t {
+  NONE = 0,
+  READ = 1,
+  WRITE = 2,
+  READWRITE = 3,
+};
+
+inline bool operator&(Access lhs, Access rhs) {
+  using T = std::underlying_type_t<Access>;
+  return static_cast<bool>(static_cast<T>(lhs) & static_cast<T>(rhs));
+}
+
+template <typename T>
+std::function<std::remove_const_t<T>()> make_getter(T &var) {
+  return [&]() { return var; };
+}
+
+template <typename T, std::enable_if_t<!std::is_const_v<T>, bool> = true>
+std::function<void(T &)> make_setter(T &var) {
+  return [&](const T &value) { var = value; };
+}
+
 class Server : public sock::Server {
 public:
   Server(uint16_t port = 3727, bool close_on_empty = true)
@@ -128,8 +153,46 @@ public:
 
   virtual ~Server() = default;
 
-  template <typename F> void bind(std::string handle, F f) {
+  template <typename F> void bind(const std::string &handle, F f) {
+    // todo: log overwrite
     m_funcs[handle] = UniversalFunc(f);
+  }
+
+  // todo: unify bind() syntax
+  template <typename T>
+  void bind_var(const std::string &name, T &var,
+                Access access = Access::READWRITE) {
+    std::optional<std::string> getter_handle = std::nullopt;
+    std::optional<std::string> setter_handle = std::nullopt;
+
+    if (access & Access::READ) {
+      getter_handle = "get_" + name;
+      bind(*getter_handle, make_getter(var));
+    }
+
+    if (access & Access::WRITE) {
+      setter_handle = "set_" + name;
+      bind(*setter_handle, make_setter(var));
+    }
+
+    m_vars[name] = {getter_handle, setter_handle};
+  }
+
+  template <typename T>
+  void bind_var(const std::string &name, const T &var,
+                Access access = Access::READ) {
+    std::optional<std::string> getter_handle = std::nullopt;
+
+    if (access & Access::READ) {
+      getter_handle = "get_" + name;
+      bind(*getter_handle, make_getter(var));
+    }
+
+    if (access & Access::WRITE) {
+      // todo: log invalid access
+    }
+
+    m_vars[name] = {getter_handle, std::nullopt};
   }
 
 private:
@@ -177,6 +240,19 @@ private:
         break;
       }
 
+      case VAR_LIST_REQUEST: {
+        std::vector<std::tuple<std::string, std::optional<std::string>,
+                               std::optional<std::string>>>
+            vars;
+        for (const auto &[name, accessors] : m_vars) {
+          const auto &[getter, setter] = accessors;
+          vars.push_back({name, getter, setter});
+        }
+
+        send(pack::pack(vars));
+        break;
+      }
+
       default: {
         send(pack::pack(INVALID_REQUEST));
         break;
@@ -189,5 +265,8 @@ private:
   }
 
   std::map<std::string, UniversalFunc> m_funcs;
+  std::map<std::string,
+           std::tuple<std::optional<std::string>, std::optional<std::string>>>
+      m_vars;
 };
 }; // namespace rpc
