@@ -63,7 +63,7 @@ class Client(Resource):
     def acquire(self):
         # todo: [0] these are supposed to be typecheck-only asserts, make them so
         assert self.client is None
-        self.client = sock.Client(port=self.port)
+        self.client = sock.TCPClient(port=self.port)
         self.client.open()
 
         self.client.send(

@@ -145,11 +145,11 @@ std::function<void(T &)> make_setter(T &var) {
   return [&](const T &value) { var = value; };
 }
 
-class Server : public sock::Server {
+class Server : public sock::TCPServer {
 public:
   Server(uint16_t port = 3727, bool close_on_empty = true)
-      : sock::Server([this](auto data, auto len) { callback(data, len); }, port,
-                     close_on_empty) {}
+      : sock::TCPServer([this](auto data, auto len) { callback(data, len); },
+                        port, close_on_empty) {}
 
   virtual ~Server() = default;
 
