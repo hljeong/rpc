@@ -10,3 +10,6 @@
 [submodule "lib/sock"]
 	path = lib/sock
 	url = git@github.com:hljeong/sock.git
+[submodule "lib/cpp_utils"]
+	path = lib/cpp_utils
+	url = git@github.com:hljeong/cpp_utils.git

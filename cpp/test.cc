@@ -1,9 +1,11 @@
 #include <cassert>
 
+#include "../lib/cpp_utils/srv/srv.h"
 #include "rpc.h"
 
 using namespace rpc;
 using namespace sock;
+using namespace srv;
 using namespace std;
 
 uint32_t add(uint32_t x, uint32_t y) { return x + y; }
