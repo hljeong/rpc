@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RPC_H
+#define RPC_H
 
 #include <map>
 #include <optional>
@@ -271,3 +272,5 @@ private:
       m_vars;
 };
 }; // namespace rpc
+
+#endif
