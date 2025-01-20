@@ -3,6 +3,8 @@
 #include "rpc.h"
 
 using namespace rpc;
+using namespace sock;
+using namespace std;
 
 uint32_t add(uint32_t x, uint32_t y) { return x + y; }
 
@@ -35,21 +37,21 @@ int main() {
   using namespace std::chrono;
   using namespace std::this_thread;
 
-  rpc::Server s;
+  AutoDispatch s(make_unique<Server>(), 5s);
 
-  s.bind("add", add);
-  s.bind("seq", seq);
-  s.bind("no_args", no_args);
-  s.bind("return_void", return_void);
-  s.bind("test_tuple", test_tuple);
-  s.bind("error", error);
-  s.bind_var("x", x);
+  s->bind("add", add);
+  s->bind("seq", seq);
+  s->bind("no_args", no_args);
+  s->bind("return_void", return_void);
+  s->bind("test_tuple", test_tuple);
+  s->bind("error", error);
+  s->bind_var("x", x);
   try {
-    s.bind_var("y", y);
+    s->bind_var("y", y);
   } catch (const std::exception &e) {
     printf("%s\n", e.what());
   }
+  s->bind("stop_server", [&] { s.signal_stop(); });
 
-  s.start(5s);
-  s.wait_for_stop();
+  s.join();
 }

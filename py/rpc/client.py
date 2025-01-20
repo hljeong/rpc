@@ -109,7 +109,7 @@ class Client(Resource):
 
         remote = Remote(self.funcs)
 
-        return remote, self
+        return remote
 
     def release(self):
         # todo: see [0]
@@ -118,11 +118,6 @@ class Client(Resource):
         self.funcs = dict()
         self.client.close()
         self.client = None
-
-    def stop_server(self):
-        # todo: see [0]
-        assert self.client is not None
-        self.client.stop_server()
 
     # todo: clean up logic for registry... so ugly
     def _register(self, handle):

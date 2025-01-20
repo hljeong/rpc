@@ -2,11 +2,10 @@ from pytest import raises
 
 from pack import pack
 from rpc import Client, RPCError
-from rpc.client import Ref
 
 
 def test_rpc():
-    with Client() as (rpc, c):
+    with Client() as rpc:
         assert rpc.add(3, 5) == 8
         assert rpc.seq(20, 10) == list(range(20, 30))
         assert rpc.no_args() == -5
@@ -23,4 +22,4 @@ def test_rpc():
         with raises(RPCError):
             rpc.y = "mutable"
 
-        c.stop_server()
+        rpc.stop_server()
