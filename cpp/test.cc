@@ -39,7 +39,7 @@ int main() {
   using namespace std::chrono;
   using namespace std::this_thread;
 
-  AutoDispatch s(make_unique<Server>(), 5s);
+  AutoDispatch s(Server(), 5s);
 
   s->bind("add", add);
   s->bind("seq", seq);

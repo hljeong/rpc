@@ -146,14 +146,20 @@ std::function<void(T &)> make_setter(T &var) {
   return [&](const T &value) { var = value; };
 }
 
-class Server : public sock::CallbackServer<sock::TCPServer> {
+class Server : public sock::TCPCallbackServer {
 public:
   Server(uint16_t port = 3727)
-      : sock::CallbackServer<sock::TCPServer>(
-            std::make_unique<sock::TCPServer>(port),
-            [this](auto data, auto len) { callback(data, len); }) {}
+      : sock::TCPCallbackServer(
+            port, [this](auto data, auto len) { callback(data, len); }) {}
 
-  virtual ~Server() = default;
+  virtual ~Server() noexcept = default;
+
+  Server(Server &&other) noexcept
+      : sock::TCPCallbackServer(std::move(other), [&](auto data, auto len) {
+          callback(data, len);
+        }) {}
+
+  Server &operator=(Server &&) noexcept = default;
 
   template <typename F> void bind(const std::string &handle, F f) {
     // todo: log overwrite
