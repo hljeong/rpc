@@ -10,9 +10,9 @@ import sock
 # todo: these should probably be moved to some rpc.py
 class RequestType(Enum):
     Call = 0
-    SignatureRequest = 1
-    HandleListRequest = 2
-    VarListRequest = 3
+    Signature = 1
+    Handles = 2
+    Vars = 3
 
 
 class StatusCode(Enum):
@@ -66,9 +66,7 @@ class Client(Resource):
         self.client = sock.TCPClient(port=self.port)
         self.client.open()
 
-        self.client.send(
-            pack.pack_one[pack.UInt8](RequestType.HandleListRequest.value).data
-        )
+        self.client.send(pack.pack_one[pack.UInt8](RequestType.Handles.value).data)
 
         # handle list request response format: [handle, ...]
         handles = pack.unpack_one[pack.List[pack.String]](self.client.receive())
@@ -78,9 +76,7 @@ class Client(Resource):
         for handle in handles:
             self._register(handle)
 
-        self.client.send(
-            pack.pack_one[pack.UInt8](RequestType.VarListRequest.value).data
-        )
+        self.client.send(pack.pack_one[pack.UInt8](RequestType.Vars.value).data)
 
         # handle list request response format: [(name, getter_handle, setter_handle), ...]
         vars = pack.unpack_one[
@@ -126,7 +122,7 @@ class Client(Resource):
 
         self.client.send(
             (
-                pack.pack_one[pack.UInt8](RequestType.SignatureRequest.value)
+                pack.pack_one[pack.UInt8](RequestType.Signature.value)
                 + pack.pack_one(handle)
             ).data
         )

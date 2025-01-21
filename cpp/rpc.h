@@ -113,14 +113,14 @@ private:
 using Handle = std::string;
 using Name = std::string;
 
-enum RequestType : uint8_t {
+enum class RequestType : uint8_t {
   Call = 0,
-  SignatureRequest = 1,
-  HandleListRequest = 2,
-  VarListRequest = 3,
+  Signature = 1,
+  Handles = 2,
+  Vars = 3,
 };
 
-enum StatusCode : uint8_t {
+enum class StatusCode : uint8_t {
   Ok = 0,
   Error = 1,
   InvalidRequest = 2,
@@ -210,37 +210,39 @@ private:
     pack::Unpacker up(pack::Bytes(data, data + len));
 
     try {
-      const auto request_type = up.unpack<uint8_t>();
+      // todo: implement custom packable type instead
+      const RequestType request_type = RequestType(up.unpack<uint8_t>());
       switch (request_type) {
-      case Call: {
+      case RequestType::Call: {
         const auto handle = up.unpack<Handle>();
         if (!m_funcs.count(handle)) {
-          send(pack::pack(UnknownHandle));
+          send(pack::pack(StatusCode::UnknownHandle));
           return;
         }
 
         try {
           const auto return_value = m_funcs[handle](up.consume());
-          send(pack::Pack(pack::pack(Ok), return_value));
+          send(pack::Pack(pack::pack(StatusCode::Ok), return_value));
         } catch (const std::runtime_error &e) {
-          send(pack::Pack(pack::pack(ExecutionError),
+          send(pack::Pack(pack::pack(StatusCode::ExecutionError),
                           pack::pack(std::string_view(e.what()))));
         }
         break;
       }
 
-      case SignatureRequest: {
+      case RequestType::Signature: {
         const auto handle = up.unpack<Handle>();
         if (!m_funcs.count(handle)) {
-          send(pack::pack(UnknownHandle));
+          send(pack::pack(StatusCode::UnknownHandle));
           return;
         }
 
-        send(pack::Pack(pack::pack(Ok), m_funcs[handle].get_signature()));
+        send(pack::Pack(pack::pack(StatusCode::Ok),
+                        m_funcs[handle].get_signature()));
         break;
       }
 
-      case HandleListRequest: {
+      case RequestType::Handles: {
         std::vector<Handle> handles;
         for (const auto &[handle, _] : m_funcs) {
           handles.push_back(handle);
@@ -250,7 +252,7 @@ private:
         break;
       }
 
-      case VarListRequest: {
+      case RequestType::Vars: {
         std::vector<
             std::tuple<Name, std::optional<Handle>, std::optional<Handle>>>
             vars;
@@ -264,13 +266,13 @@ private:
       }
 
       default: {
-        send(pack::pack(InvalidRequest));
+        send(pack::pack(StatusCode::InvalidRequest));
         break;
       }
       };
     } catch (const std::runtime_error &e) {
       // todo: more granularity on this try catch
-      send(pack::pack(Error));
+      send(pack::pack(StatusCode::Error));
     }
   }
 
