@@ -9,18 +9,18 @@ import sock
 
 # todo: these should probably be moved to some rpc.py
 class RequestType(Enum):
-    CALL = 0
-    SIGNATURE_REQUEST = 1
-    HANDLE_LIST_REQUEST = 2
-    VAR_LIST_REQUEST = 3
+    Call = 0
+    SignatureRequest = 1
+    HandleListRequest = 2
+    VarListRequest = 3
 
 
 class StatusCode(Enum):
-    OK = 0
-    ERROR = 1
-    INVALID_REQUEST = 2
-    UNKNOWN_HANDLE = 3
-    EXECUTION_ERROR = 4
+    Ok = 0
+    Error = 1
+    InvalidRequest = 2
+    UnknownHandle = 3
+    ExecutionError = 4
 
 
 class RPCError(Exception):
@@ -67,7 +67,7 @@ class Client(Resource):
         self.client.open()
 
         self.client.send(
-            pack.pack_one[pack.UInt8](RequestType.HANDLE_LIST_REQUEST.value).data
+            pack.pack_one[pack.UInt8](RequestType.HandleListRequest.value).data
         )
 
         # handle list request response format: [handle, ...]
@@ -79,7 +79,7 @@ class Client(Resource):
             self._register(handle)
 
         self.client.send(
-            pack.pack_one[pack.UInt8](RequestType.VAR_LIST_REQUEST.value).data
+            pack.pack_one[pack.UInt8](RequestType.VarListRequest.value).data
         )
 
         # handle list request response format: [(name, getter_handle, setter_handle), ...]
@@ -126,7 +126,7 @@ class Client(Resource):
 
         self.client.send(
             (
-                pack.pack_one[pack.UInt8](RequestType.SIGNATURE_REQUEST.value)
+                pack.pack_one[pack.UInt8](RequestType.SignatureRequest.value)
                 + pack.pack_one(handle)
             ).data
         )
@@ -138,8 +138,8 @@ class Client(Resource):
 
         status = up.unpack[pack.UInt8]()
         status = StatusCode(status)
-        if status != StatusCode.OK:
-            if status == StatusCode.UNKNOWN_HANDLE:
+        if status != StatusCode.Ok:
+            if status == StatusCode.UnknownHandle:
                 raise RPCError(f"unknown function handle: {handle}")
             else:
                 raise RPCError(status)
@@ -170,7 +170,7 @@ class Client(Resource):
 
             self.client.send(
                 (
-                    pack.pack_one[pack.UInt8](RequestType.CALL.value)
+                    pack.pack_one[pack.UInt8](RequestType.Call.value)
                     + pack.pack(handle)
                     + packed_args
                 ).data
@@ -181,10 +181,10 @@ class Client(Resource):
 
             status = up.unpack[pack.UInt8]()
             status = StatusCode(status)
-            if status != StatusCode.OK:
-                if status == StatusCode.UNKNOWN_HANDLE:
+            if status != StatusCode.Ok:
+                if status == StatusCode.UnknownHandle:
                     raise RPCError(f"unknown function handle: {handle}")
-                elif status == StatusCode.EXECUTION_ERROR:
+                elif status == StatusCode.ExecutionError:
                     raise RPCError(
                         f"execution error during call to {handle}({', '.join(map(repr, args))}): {up.unpack[pack.String]()}"
                     )

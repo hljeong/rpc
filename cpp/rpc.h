@@ -11,6 +11,7 @@
 
 namespace rpc {
 
+// todo: move func_traits out?
 template <typename> struct func_traits;
 
 template <typename F>
@@ -109,26 +110,29 @@ private:
   pack::Pack m_signature;
 };
 
+using Handle = std::string;
+using Name = std::string;
+
 enum RequestType : uint8_t {
-  CALL = 0,
-  SIGNATURE_REQUEST = 1,
-  HANDLE_LIST_REQUEST = 2,
-  VAR_LIST_REQUEST = 3,
+  Call = 0,
+  SignatureRequest = 1,
+  HandleListRequest = 2,
+  VarListRequest = 3,
 };
 
 enum StatusCode : uint8_t {
-  OK = 0,
-  ERROR = 1,
-  INVALID_REQUEST = 2,
-  UNKNOWN_HANDLE = 3,
-  EXECUTION_ERROR = 4,
+  Ok = 0,
+  Error = 1,
+  InvalidRequest = 2,
+  UnknownHandle = 3,
+  ExecutionError = 4,
 };
 
 enum class Access : uint8_t {
-  NONE = 0,
-  READ = 1,
-  WRITE = 2,
-  READWRITE = 3,
+  None = 0,
+  Read = 1,
+  Write = 2,
+  ReadWrite = 3,
 };
 
 inline bool operator&(Access lhs, Access rhs) {
@@ -161,24 +165,23 @@ public:
 
   Server &operator=(Server &&) noexcept = default;
 
-  template <typename F> void bind(const std::string &handle, F f) {
+  template <typename F> void bind(const Handle &handle, F f) {
     // todo: log overwrite
     m_funcs[handle] = UniversalFunc(f);
   }
 
   // todo: unify bind() syntax
   template <typename T>
-  void bind_var(const std::string &name, T &var,
-                Access access = Access::READWRITE) {
-    std::optional<std::string> getter_handle = std::nullopt;
-    std::optional<std::string> setter_handle = std::nullopt;
+  void bind_var(const Name &name, T &var, Access access = Access::ReadWrite) {
+    std::optional<Handle> getter_handle = std::nullopt;
+    std::optional<Handle> setter_handle = std::nullopt;
 
-    if (access & Access::READ) {
+    if (access & Access::Read) {
       getter_handle = "get_" + name;
       bind(*getter_handle, make_getter(var));
     }
 
-    if (access & Access::WRITE) {
+    if (access & Access::Write) {
       setter_handle = "set_" + name;
       bind(*setter_handle, make_setter(var));
     }
@@ -187,16 +190,15 @@ public:
   }
 
   template <typename T>
-  void bind_var(const std::string &name, const T &var,
-                Access access = Access::READ) {
-    std::optional<std::string> getter_handle = std::nullopt;
+  void bind_var(const Name &name, const T &var, Access access = Access::Read) {
+    std::optional<Handle> getter_handle = std::nullopt;
 
-    if (access & Access::READ) {
+    if (access & Access::Read) {
       getter_handle = "get_" + name;
       bind(*getter_handle, make_getter(var));
     }
 
-    if (access & Access::WRITE) {
+    if (access & Access::Write) {
       // todo: log invalid access
     }
 
@@ -210,36 +212,36 @@ private:
     try {
       const auto request_type = up.unpack<uint8_t>();
       switch (request_type) {
-      case CALL: {
-        const auto handle = up.unpack<std::string>();
+      case Call: {
+        const auto handle = up.unpack<Handle>();
         if (!m_funcs.count(handle)) {
-          send(pack::pack(UNKNOWN_HANDLE));
+          send(pack::pack(UnknownHandle));
           return;
         }
 
         try {
           const auto return_value = m_funcs[handle](up.consume());
-          send(pack::Pack(pack::pack(OK), return_value));
+          send(pack::Pack(pack::pack(Ok), return_value));
         } catch (const std::runtime_error &e) {
-          send(pack::Pack(pack::pack(EXECUTION_ERROR),
+          send(pack::Pack(pack::pack(ExecutionError),
                           pack::pack(std::string_view(e.what()))));
         }
         break;
       }
 
-      case SIGNATURE_REQUEST: {
-        const auto handle = up.unpack<std::string>();
+      case SignatureRequest: {
+        const auto handle = up.unpack<Handle>();
         if (!m_funcs.count(handle)) {
-          send(pack::pack(UNKNOWN_HANDLE));
+          send(pack::pack(UnknownHandle));
           return;
         }
 
-        send(pack::Pack(pack::pack(OK), m_funcs[handle].get_signature()));
+        send(pack::Pack(pack::pack(Ok), m_funcs[handle].get_signature()));
         break;
       }
 
-      case HANDLE_LIST_REQUEST: {
-        std::vector<std::string> handles;
+      case HandleListRequest: {
+        std::vector<Handle> handles;
         for (const auto &[handle, _] : m_funcs) {
           handles.push_back(handle);
         }
@@ -248,9 +250,9 @@ private:
         break;
       }
 
-      case VAR_LIST_REQUEST: {
-        std::vector<std::tuple<std::string, std::optional<std::string>,
-                               std::optional<std::string>>>
+      case VarListRequest: {
+        std::vector<
+            std::tuple<Name, std::optional<Handle>, std::optional<Handle>>>
             vars;
         for (const auto &[name, accessors] : m_vars) {
           const auto &[getter, setter] = accessors;
@@ -262,21 +264,21 @@ private:
       }
 
       default: {
-        send(pack::pack(INVALID_REQUEST));
+        send(pack::pack(InvalidRequest));
         break;
       }
       };
     } catch (const std::runtime_error &e) {
       // todo: more granularity on this try catch
-      send(pack::pack(ERROR));
+      send(pack::pack(Error));
     }
   }
 
-  std::map<std::string, UniversalFunc> m_funcs;
-  std::map<std::string,
-           std::tuple<std::optional<std::string>, std::optional<std::string>>>
+  std::map<Handle, UniversalFunc> m_funcs;
+  std::map<Name, std::tuple<std::optional<Handle>, std::optional<Handle>>>
       m_vars;
 };
-}; // namespace rpc
+
+} // namespace rpc
 
 #endif
