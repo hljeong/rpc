@@ -12,21 +12,32 @@
 namespace rpc {
 
 // todo: move func_traits out?
-template <typename> struct func_traits;
+template <typename T, typename = void> struct func_traits {
+  static constexpr bool is_function = false;
+};
 
 template <typename F>
-struct func_traits : func_traits<decltype(&F::operator())> {};
+struct func_traits<F, std::void_t<decltype(&F::operator())>>
+    : func_traits<decltype(&F::operator()), void> {};
 
 template <typename T, typename R, typename... As>
-struct func_traits<R (T::*)(As...)> : func_traits<R (*)(As...)> {};
+struct func_traits<R (T::*)(As...)> : func_traits<R(As...)> {};
 
 template <typename T, typename R, typename... As>
-struct func_traits<R (T::*)(As...) const> : func_traits<R (*)(As...)> {};
+struct func_traits<R (T::*)(As...) const> : func_traits<R(As...)> {};
 
-template <typename R, typename... As> struct func_traits<R (*)(As...)> {
+template <typename R, typename... As>
+struct func_traits<R (*)(As...)> : func_traits<R(As...)> {};
+
+template <typename R, typename... As>
+struct func_traits<R(As...) const> : func_traits<R(As...)> {};
+
+template <typename R, typename... As> struct func_traits<R(As...)> {
+  static constexpr bool is_function = true;
+
   using return_type = R;
 
-  static const std::size_t arity = sizeof...(As);
+  static constexpr std::size_t arity = sizeof...(As);
 
   using arg_types = std::tuple<As...>;
 
@@ -36,15 +47,19 @@ template <typename R, typename... As> struct func_traits<R (*)(As...)> {
                                     std::tuple<typename std::decay_t<As>...>>;
 };
 
+template <typename T>
+static constexpr bool is_function = func_traits<T>::is_function;
+
 template <typename F> using return_type = typename func_traits<F>::return_type;
 
 template <typename F, std::size_t I>
 using nth_arg_type = typename func_traits<F>::template arg_type<I>;
 
-template <typename F> constexpr std::size_t arity = func_traits<F>::arity;
+template <typename F>
+static constexpr std::size_t arity = func_traits<F>::arity;
 
 template <typename F>
-constexpr bool returns_void = std::is_same_v<return_type<F>, void>;
+static constexpr bool returns_void = std::is_same_v<return_type<F>, void>;
 
 template <typename F, typename T>
 auto packable_apply(F f, T t)
@@ -165,14 +180,14 @@ public:
 
   Server &operator=(Server &&) noexcept = default;
 
-  template <typename F> void bind(const Handle &handle, F f) {
+  template <typename F, std::enable_if_t<is_function<F>, bool> = true>
+  void bind(const Handle &handle, F f) {
     // todo: log overwrite
     m_funcs[handle] = UniversalFunc(f);
   }
 
-  // todo: unify bind() syntax
-  template <typename T>
-  void bind_var(const Name &name, T &var, Access access = Access::ReadWrite) {
+  template <typename T, std::enable_if_t<!is_function<T>, bool> = true>
+  void bind(const Name &name, T &var, Access access = Access::ReadWrite) {
     std::optional<Handle> getter_handle = std::nullopt;
     std::optional<Handle> setter_handle = std::nullopt;
 
@@ -189,8 +204,8 @@ public:
     m_vars[name] = {getter_handle, setter_handle};
   }
 
-  template <typename T>
-  void bind_var(const Name &name, const T &var, Access access = Access::Read) {
+  template <typename T, std::enable_if_t<!is_function<T>, bool> = true>
+  void bind(const Name &name, const T &var, Access access = Access::Read) {
     std::optional<Handle> getter_handle = std::nullopt;
 
     if (access & Access::Read) {

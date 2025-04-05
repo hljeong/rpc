@@ -47,9 +47,9 @@ int main() {
   s->bind("return_void", return_void);
   s->bind("test_tuple", test_tuple);
   s->bind("error", error);
-  s->bind_var("x", x);
+  s->bind("x", x);
   try {
-    s->bind_var("y", y);
+    s->bind("y", y);
   } catch (const std::exception &e) {
     printf("%s\n", e.what());
   }
